@@ -43,6 +43,8 @@ struct PanelRootView: View {
         .animation(.snappy(duration: 0.25), value: state.undo?.message)
         .padding(Self.margin)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // Панель почти никогда не ключевое окно — без этого кнопки выглядят выключенными.
+        .environment(\.controlActiveState, .key)
     }
 
     private func undoBar(_ undo: AppState.UndoEntry) -> some View {

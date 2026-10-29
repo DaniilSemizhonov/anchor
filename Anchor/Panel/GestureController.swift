@@ -22,7 +22,7 @@ final class GestureController {
     /// Порог, после которого отпускание выполняет действие.
     static let threshold: CGFloat = 64
     /// Шаг вертикального скролла по таблетке для переключения задачи.
-    private static let switchStep: CGFloat = 36
+    private static let switchStep: CGFloat = 50
 
     private(set) var activeRow: RowID?
     private(set) var offset: CGFloat = 0
