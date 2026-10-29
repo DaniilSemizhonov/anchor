@@ -5,8 +5,19 @@ import SwiftUI
 struct SettingsView: View {
     static let windowID = "settings"
 
-    enum Tab: String {
+    enum Tab: String, CaseIterable, Identifiable {
         case general, appearance, shortcuts, updates
+
+        var id: Self { self }
+
+        var title: String {
+            switch self {
+            case .general: "Основные"
+            case .appearance: "Вид"
+            case .shortcuts: "Клавиши"
+            case .updates: "Обновления"
+            }
+        }
     }
 
     /// `--settings-tab=appearance` — открыть на нужной вкладке (для скриншотов в CI).
@@ -15,22 +26,23 @@ struct SettingsView: View {
         .flatMap { Tab(rawValue: String($0.dropFirst("--settings-tab=".count))) } ?? .general
 
     var body: some View {
-        TabView(selection: $tab) {
-            SwiftUI.Tab("Основные", systemImage: "gearshape", value: Tab.general) {
-                GeneralSettings()
+        // Свой переключатель вместо TabView: на macOS 27 вкладки TabView в этом окне
+        // то уезжали в меню тулбара, то сплющивались.
+        VStack(spacing: 0) {
+            Picker("Раздел", selection: $tab) {
+                ForEach(Tab.allCases) { Text($0.title).tag($0) }
             }
-            SwiftUI.Tab("Вид", systemImage: "paintpalette", value: Tab.appearance) {
-                AppearanceSettings()
-            }
-            SwiftUI.Tab("Клавиши", systemImage: "keyboard", value: Tab.shortcuts) {
-                ShortcutSettings()
-            }
-            SwiftUI.Tab("Обновления", systemImage: "arrow.down.circle", value: Tab.updates) {
-                UpdateSettings()
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding([.horizontal, .top], 16)
+
+            switch tab {
+            case .general: GeneralSettings()
+            case .appearance: AppearanceSettings()
+            case .shortcuts: ShortcutSettings()
+            case .updates: UpdateSettings()
             }
         }
-        // Обычные вкладки внутри окна: в стиле по умолчанию они уезжали в меню «»» тулбара.
-        .tabViewStyle(.grouped)
         .frame(width: 480, height: 560)
     }
 }
