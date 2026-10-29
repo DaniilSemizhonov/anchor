@@ -3,8 +3,9 @@ import SwiftUI
 
 @MainActor
 final class PanelController {
-    private static let autosaveName = "AnchorPanel"
+    private static let positionKey = "panelTopLeft"
     private let panel = FloatingPanel()
+    private var moveObserver: NSObjectProtocol?
 
     init(state: AppState) {
         let hosting = NSHostingView(rootView: PanelRootView { [weak self] size in
@@ -14,12 +15,22 @@ final class PanelController {
         // на macOS 27 уходила в бесконечную рекурсию раскладки.
         hosting.sizingOptions = []
         panel.contentView = hosting
-        panel.setContentSize(Self.rounded(hosting.fittingSize))
+        // Точную высоту выставит resize после первой раскладки.
+        panel.setContentSize(NSSize(width: PanelRootView.width, height: 44))
 
-        if !panel.setFrameUsingName(Self.autosaveName) {
+        // Запоминаем верхний левый угол: стандартный autosave для окон без изменения
+        // размера хранит нижний, и после перезапуска панель сползала.
+        if let saved = UserDefaults.standard.string(forKey: Self.positionKey).map(NSPointFromString),
+           NSScreen.screens.contains(where: { $0.frame.contains(NSPoint(x: saved.x + 1, y: saved.y - 1)) }) {
+            panel.setFrameTopLeftPoint(saved)
+        } else {
             placeAtTopCenter()
         }
-        panel.setFrameAutosaveName(Self.autosaveName)
+        moveObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didMoveNotification, object: panel, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.savePosition() }
+        }
     }
 
     func show() {
@@ -46,6 +57,11 @@ final class PanelController {
                            display: true)
             panel.invalidateShadow()
         }
+    }
+
+    private func savePosition() {
+        let topLeft = NSPoint(x: panel.frame.minX, y: panel.frame.maxY)
+        UserDefaults.standard.set(NSStringFromPoint(topLeft), forKey: Self.positionKey)
     }
 
     private static func rounded(_ size: CGSize) -> NSSize {
