@@ -169,8 +169,9 @@ final class GestureController {
         // Пальцы вверх — следующая задача, вниз — предыдущая.
         let steps = Int((-tracking.dy - tracking.switchedBy) / Self.switchStep)
         guard steps != 0 else { return }
-        tracking.switchedBy += CGFloat(steps) * Self.switchStep
-        if withAnimation(.snappy(duration: 0.2), { state.switchTask(by: steps > 0 ? 1 : -1) }) {
+        let direction = steps > 0 ? 1 : -1
+        tracking.switchedBy += CGFloat(direction) * Self.switchStep
+        if withAnimation(.snappy(duration: 0.2), { state.switchTask(by: direction) }) {
             NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
         }
     }

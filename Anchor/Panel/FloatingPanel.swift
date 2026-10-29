@@ -10,6 +10,8 @@ final class FloatingPanel: NSPanel {
             defer: false
         )
         isFloatingPanel = true
+        // Клавиатуру забираем только при клике в поле ввода, иначе печать уходила бы в Anchor.
+        becomesKeyOnlyIfNeeded = true
         level = .statusBar
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         hidesOnDeactivate = false
