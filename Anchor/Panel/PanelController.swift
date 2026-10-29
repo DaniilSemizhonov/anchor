@@ -10,6 +10,8 @@ final class PanelController {
         let hosting = NSHostingController(rootView: PanelRootView().environment(state))
         hosting.sizingOptions = [.preferredContentSize]
         panel.contentViewController = hosting
+        // До первой раскладки окно нулевого размера — без этого «по центру» сползает вправо.
+        panel.setContentSize(hosting.sizeThatFits(in: NSSize(width: 340, height: 1000)))
 
         if !panel.setFrameUsingName(Self.autosaveName) {
             placeAtTopCenter()
