@@ -1,0 +1,6 @@
+.DS_Store
+*.xcodeproj/
+Support/Info.plist
+build/
+.build/
+.swiftpm/

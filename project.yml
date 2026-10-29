@@ -1,0 +1,45 @@
+name: Anchor
+options:
+  bundleIdPrefix: xyz.gelsemium
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+packages:
+  AnchorCore:
+    path: Packages/AnchorCore
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ARCHS: arm64
+targets:
+  Anchor:
+    type: application
+    platform: macOS
+    sources: [Anchor]
+    dependencies:
+      - package: AnchorCore
+    info:
+      path: Support/Info.plist
+      properties:
+        CFBundleDisplayName: Anchor
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSUIElement: true
+        LSApplicationCategoryType: public.app-category.productivity
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: xyz.gelsemium.anchor
+        PRODUCT_NAME: Anchor
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        DEVELOPMENT_TEAM: ""
+        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_APP_SANDBOX: NO
+        GENERATE_INFOPLIST_FILE: NO
+schemes:
+  Anchor:
+    build:
+      targets:
+        Anchor: all

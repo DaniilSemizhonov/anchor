@@ -1,0 +1,82 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  core:
+    name: AnchorCore (Linux)
+    runs-on: ubuntu-latest
+    container: swift:latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: swift test --package-path Packages/AnchorCore
+
+  app:
+    name: Anchor.app (macOS)
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Свежий Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | grep -iv beta | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+          sw_vers
+
+      - name: Тесты ядра
+        run: swift test --package-path Packages/AnchorCore
+
+      - name: Проект Xcode
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Сборка
+        run: |
+          xcodebuild -project Anchor.xcodeproj -scheme Anchor -configuration Release \
+            -derivedDataPath build -quiet build
+          codesign --force --deep --sign - build/Build/Products/Release/Anchor.app
+          ditto -c -k --keepParent build/Build/Products/Release/Anchor.app Anchor.zip
+
+      - name: Скриншоты
+        continue-on-error: true
+        run: |
+          APP=build/Build/Products/Release/Anchor.app
+          mkdir -p shots
+          open "$APP" --args --demo
+          sleep 6
+          screencapture -x shots/pill.png
+          pkill -x Anchor || true
+          sleep 1
+          open "$APP" --args --demo --expanded
+          sleep 6
+          screencapture -x shots/expanded.png
+          pkill -x Anchor || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Anchor-app
+          path: Anchor.zip
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: shots/
+          if-no-files-found: ignore
+
+      - name: Релиз
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" Anchor.zip --title "Anchor $GITHUB_REF_NAME" --generate-notes
