@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct PanelRootView: View {
-    static let width: CGFloat = 340
+    /// Окно рассчитано на самую широкую карточку из настроек.
+    static let maxWidth = CGFloat(PanelDefaults.widthRange.upperBound)
     /// Прозрачные поля вокруг карточки — место под тень.
     static let margin: CGFloat = 14
     /// Высота окна: с запасом под развёрнутую карточку.
@@ -12,6 +13,7 @@ struct PanelRootView: View {
 
     @Environment(AppState.self) private var state
     @State private var draft = ""
+    @AppStorage(AppearanceKeys.width) private var width = PanelDefaults.width
 
     /// Не сворачиваемся, пока в поле ввода что-то набрано или строка переименовывается.
     private var isExpanded: Bool {
@@ -34,9 +36,8 @@ struct PanelRootView: View {
                     .transition(.opacity)
             }
         }
-        .frame(width: Self.width, alignment: .leading)
-        .clipShape(.rect(cornerRadius: 18))
-        .glassEffect(.regular, in: .rect(cornerRadius: 18))
+        .frame(width: width, alignment: .leading)
+        .panelBackground()
         .shadow(color: .black.opacity(0.15), radius: 10, y: 4)
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { onCardFrameChange($0) }
         .animation(.snappy(duration: 0.25), value: isExpanded)

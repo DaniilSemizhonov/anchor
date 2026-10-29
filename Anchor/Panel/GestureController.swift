@@ -78,6 +78,10 @@ final class GestureController {
             Hint(title: "Удалить", systemImage: "trash", isDestructive: true)
         case (.task, .right):
             Hint(title: "Готово", systemImage: "checkmark", isDestructive: false)
+        case (.parked, .right):
+            Hint(title: "В задачи", systemImage: "tray.and.arrow.up", isDestructive: false)
+        case (.parked, .left):
+            Hint(title: "Удалить", systemImage: "trash", isDestructive: true)
         }
     }
 
@@ -194,6 +198,8 @@ final class GestureController {
         case (.step(let index), .left): state.removeStep(at: index)
         case (.task(let id), .right): state.complete(id)
         case (.task(let id), .left): state.postpone(id, .tomorrow)
+        case (.parked(let id), .right): state.promoteParked(id)
+        case (.parked(let id), .left): state.deleteParked(id)
         }
     }
 }

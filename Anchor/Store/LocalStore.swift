@@ -7,6 +7,8 @@ struct LocalStore {
         var tasks: [AnchorTask]
         var currentTaskID: String?
         var session: FocusSession
+        /// Необязательное: в состояниях до 0.3 его нет.
+        var parked: [ParkedThought]?
     }
 
     let url: URL

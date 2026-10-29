@@ -7,6 +7,14 @@ enum RowID: Hashable {
     case pill
     case step(Int)
     case task(String)
+    case parked(String)
+}
+
+/// Мысль в парковке: всплыла во время работы, но задачей пока не стала.
+struct ParkedThought: Identifiable, Codable, Hashable {
+    let id: String
+    var text: String
+    let created: Date
 }
 
 @MainActor
@@ -15,6 +23,7 @@ final class AppState {
     private(set) var tasks: [AnchorTask] = []
     private(set) var currentTaskID: String?
     private(set) var session = FocusSession()
+    private(set) var parked: [ParkedThought] = []
     /// Развёрнута по клику, а не только по наведению.
     var isPinnedExpanded = false
     /// Курсор над карточкой (с задержкой, см. PanelController).
@@ -29,6 +38,7 @@ final class AppState {
         fileprivate let tasks: [AnchorTask]
         fileprivate let currentTaskID: String?
         fileprivate let session: FocusSession
+        fileprivate let parked: [ParkedThought]
     }
 
     @ObservationIgnored private let store: LocalStore?
@@ -41,6 +51,7 @@ final class AppState {
             tasks = snapshot.tasks
             currentTaskID = snapshot.currentTaskID
             session = snapshot.session
+            parked = snapshot.parked ?? []
         }
     }
 
@@ -77,6 +88,7 @@ final class AppState {
 
     func capture(_ text: String, makeCurrent: Bool = false) {
         guard let task = parser.parse(text, today: today).makeTask(id: TaskID.make()) else { return }
+        recordUndo("Добавлено: \(task.title)")
         tasks.append(task)
         if makeCurrent || currentTaskID == nil {
             focus(on: task.id)
@@ -128,7 +140,43 @@ final class AppState {
         update(id) { $0.title = trimmed }
     }
 
+    // MARK: - Парковка
+
+    func park(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        recordUndo("В парковке: \(trimmed)")
+        parked.append(ParkedThought(id: TaskID.make(), text: trimmed, created: .now))
+        save()
+    }
+
+    /// Мысль становится задачей (с разбором дат и тегов, как в быстром вводе).
+    func promoteParked(_ id: String) {
+        guard let thought = parked.first(where: { $0.id == id }),
+              let task = parser.parse(thought.text, today: today).makeTask(id: TaskID.make())
+        else { return }
+        recordUndo("В задачи: \(task.title)")
+        parked.removeAll { $0.id == id }
+        tasks.append(task)
+        if currentTaskID == nil { focus(on: task.id) } else { save() }
+    }
+
+    func deleteParked(_ id: String) {
+        guard let thought = parked.first(where: { $0.id == id }) else { return }
+        recordUndo("Удалено из парковки: \(thought.text)")
+        parked.removeAll { $0.id == id }
+        save()
+    }
+
     // MARK: - Шаги текущей задачи
+
+    /// «Где остановился» у текущей задачи.
+    func addCrumb(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, currentTaskID != nil else { return }
+        recordUndo("📍 \(trimmed)")
+        updateCurrent { $0.addCrumb(trimmed) }
+    }
 
     func toggleStep(at index: Int) {
         updateCurrent { $0.toggleStep(at: index) }
@@ -181,6 +229,7 @@ final class AppState {
         tasks = entry.tasks
         currentTaskID = entry.currentTaskID
         session = entry.session
+        parked = entry.parked
         clearUndo()
         save()
     }
@@ -191,7 +240,7 @@ final class AppState {
     }
 
     private func recordUndo(_ message: String) {
-        undo = UndoEntry(message: message, tasks: tasks, currentTaskID: currentTaskID, session: session)
+        undo = UndoEntry(message: message, tasks: tasks, currentTaskID: currentTaskID, session: session, parked: parked)
         undoExpiry?.cancel()
         undoExpiry = Task { [weak self] in
             try? await Task.sleep(for: .seconds(6))
@@ -224,7 +273,7 @@ final class AppState {
     }
 
     private func save() {
-        store?.save(.init(tasks: tasks, currentTaskID: currentTaskID, session: session))
+        store?.save(.init(tasks: tasks, currentTaskID: currentTaskID, session: session, parked: parked))
     }
 
     private func loadDemo() {
@@ -244,6 +293,10 @@ final class AppState {
         var done = parse("Выпить воды")
         done.complete(on: today)
         tasks.append(done)
+        parked = [
+            ParkedThought(id: "p1", text: "Посмотреть курс по SwiftUI", created: .now),
+            ParkedThought(id: "p2", text: "Подарок маме на ДР", created: .now),
+        ]
         currentTaskID = report.id
         session.focus(on: report.id, at: Date(timeIntervalSinceNow: -23 * 60))
     }

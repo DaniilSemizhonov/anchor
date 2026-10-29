@@ -9,6 +9,7 @@ struct ExpandedView: View {
     @Binding var draft: String
     @State private var newStep = ""
     @State private var showAllUpcoming = false
+    @State private var showParked = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -28,6 +29,10 @@ struct ExpandedView: View {
 
             if !state.upcoming.isEmpty || state.doneTodayCount > 0 {
                 upcoming
+            }
+
+            if !state.parked.isEmpty {
+                parking
             }
         }
         .padding(14)
@@ -171,6 +176,46 @@ struct ExpandedView: View {
                 Divider()
                 Button("Удалить", systemImage: "trash", role: .destructive) {
                     withAnimation(.snappy) { state.delete(task.id) }
+                }
+            }
+        }
+    }
+
+    // MARK: - Парковка
+
+    private var parking: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Button {
+                withAnimation(.snappy) { showParked.toggle() }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.right")
+                        .rotationEffect(.degrees(showParked ? 90 : 0))
+                    Text("Парковка · \(state.parked.count)")
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+
+            if showParked {
+                ForEach(state.parked) { thought in
+                    Text(thought.text)
+                        .lineLimit(2)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .swipeable(.parked(thought.id))
+                        .contextMenu {
+                            Button("Сделать задачей", systemImage: "tray.and.arrow.up") {
+                                withAnimation(.snappy) { state.promoteParked(thought.id) }
+                            }
+                            Button("Удалить", systemImage: "trash", role: .destructive) {
+                                withAnimation(.snappy) { state.deleteParked(thought.id) }
+                            }
+                        }
                 }
             }
         }

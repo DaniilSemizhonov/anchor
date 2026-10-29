@@ -7,7 +7,7 @@ import SwiftUI
 final class PanelController {
     private static let positionKey = "panelTopLeft"
     private static let windowSize = NSSize(
-        width: PanelRootView.width + 2 * PanelRootView.margin,
+        width: PanelRootView.maxWidth + 2 * PanelRootView.margin,
         height: PanelRootView.maxHeight
     )
 
@@ -113,6 +113,9 @@ final class PanelController {
     private func placeAtTopCenter() {
         guard let screen = NSScreen.main else { return }
         let visible = screen.visibleFrame
-        panel.setFrameTopLeftPoint(NSPoint(x: visible.midX - Self.windowSize.width / 2, y: visible.maxY))
+        // Центрируем карточку, а не окно: окно шире карточки на запас под максимальную ширину.
+        let stored = UserDefaults.standard.double(forKey: AppearanceKeys.width)
+        let cardWidth = stored > 0 ? stored : PanelDefaults.width
+        panel.setFrameTopLeftPoint(NSPoint(x: visible.midX - cardWidth / 2 - PanelRootView.margin, y: visible.maxY))
     }
 }
