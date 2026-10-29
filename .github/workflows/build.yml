@@ -163,7 +163,7 @@ jobs:
           # Настройки без панели поверх: прячем её хоткеем ⌃⌥H.
           open "$APP" --args --demo --settings --settings-tab=appearance
           sleep 6
-          cliclick kd:ctrl,alt kp:h ku:ctrl,alt
+          cliclick kd:ctrl,alt t:h ku:ctrl,alt
           sleep 1
           screencapture -x shots/settings-appearance.png
           pkill -x Anchor || true
