@@ -104,6 +104,21 @@ jobs:
           screencapture -x shots/expanded.png
           pkill -x Anchor || true
           sleep 1
+          # Жесты: свайп шага вправо (середина и результат), переключение задачи скроллом по таблетке.
+          swiftc -O scripts/ci/scroll.swift -o /tmp/scroll
+          open "$APP" --args --demo --expanded
+          sleep 6
+          /tmp/scroll 450 139 100 0 hold
+          sleep 0.5
+          screencapture -x shots/swipe-hold.png
+          /tmp/scroll 450 139 0 0 end
+          sleep 1
+          screencapture -x shots/swipe-done.png
+          /tmp/scroll 512 62 0 -80
+          sleep 1
+          screencapture -x shots/switch.png
+          pkill -x Anchor || true
+          sleep 1
           open "$APP" --args --demo --settings
           sleep 6
           screencapture -x shots/settings.png

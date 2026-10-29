@@ -125,7 +125,7 @@ public struct AnchorTask: Identifiable, Hashable, Codable, Sendable {
         doneDate = nil
     }
 
-    private func childIndex(ofStep index: Int) -> Int? {
+    func childIndex(ofStep index: Int) -> Int? {
         var seen = 0
         for (position, child) in children.enumerated() {
             guard case .step = child else { continue }

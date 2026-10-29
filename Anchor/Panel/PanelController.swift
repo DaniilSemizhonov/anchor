@@ -13,6 +13,8 @@ final class PanelController {
 
     private let panel = FloatingPanel()
     private let state: AppState
+    private let gestures: GestureController
+    private var scrollMonitor: Any?
     /// Карточка в координатах окна (начало — сверху слева).
     private var cardFrame: CGRect = .zero
     private var moveObserver: NSObjectProtocol?
@@ -22,9 +24,12 @@ final class PanelController {
 
     init(state: AppState) {
         self.state = state
+        gestures = GestureController(state: state)
         let hosting = NSHostingView(rootView: PanelRootView { [weak self] frame in
             self?.cardFrame = frame
-        }.environment(state))
+        }
+        .environment(state)
+        .environment(gestures))
         hosting.sizingOptions = []
         panel.contentView = hosting
         panel.setContentSize(Self.windowSize)
@@ -52,6 +57,12 @@ final class PanelController {
         }
         RunLoop.main.add(timer, forMode: .common)
         mouseTimer = timer
+
+        gestures.window = panel
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            let handled = MainActor.assumeIsolated { self?.gestures.handle(event) ?? false }
+            return handled ? nil : event
+        }
     }
 
     func show() {

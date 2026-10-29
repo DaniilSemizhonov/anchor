@@ -2,6 +2,13 @@ import AnchorCore
 import Foundation
 import Observation
 
+/// Строка, которую можно свайпать и редактировать.
+enum RowID: Hashable {
+    case pill
+    case step(Int)
+    case task(String)
+}
+
 @MainActor
 @Observable
 final class AppState {
@@ -12,9 +19,21 @@ final class AppState {
     var isPinnedExpanded = false
     /// Курсор над карточкой (с задержкой, см. PanelController).
     var isHovering = false
+    /// Какая строка сейчас переименовывается.
+    var editing: RowID?
+    /// Последнее действие, которое можно отменить.
+    private(set) var undo: UndoEntry?
+
+    struct UndoEntry {
+        let message: String
+        fileprivate let tasks: [AnchorTask]
+        fileprivate let currentTaskID: String?
+        fileprivate let session: FocusSession
+    }
 
     @ObservationIgnored private let store: LocalStore?
     @ObservationIgnored private let parser = QuickCaptureParser()
+    @ObservationIgnored private var undoExpiry: Task<Void, Never>?
 
     init(store: LocalStore?) {
         self.store = store
@@ -41,21 +60,20 @@ final class AppState {
         tasks.first { $0.id == currentTaskID }
     }
 
-    /// Что дальше: важное и срочное сверху, без сроков — в конце.
+    /// Что дальше, без текущей задачи.
     var upcoming: [AnchorTask] {
-        let open = tasks.filter { !$0.isDone && $0.id != currentTaskID }
-        let sorted = open.sorted { a, b in
-            if a.priority != b.priority { return a.priority > b.priority }
-            switch (a.due, b.due) {
-            case let (x?, y?): return x < y
-            case (.some, nil): return true
-            default: return false
-            }
-        }
-        return Array(sorted.prefix(5))
+        TaskQueue.ordered(tasks).filter { $0.id != currentTaskID }
     }
 
-    // MARK: - Действия
+    var doneTodayCount: Int {
+        tasks.count { $0.isDone && $0.doneDate == today }
+    }
+
+    func task(_ id: String) -> AnchorTask? {
+        tasks.first { $0.id == id }
+    }
+
+    // MARK: - Задачи
 
     func capture(_ text: String, makeCurrent: Bool = false) {
         guard let task = parser.parse(text, today: today).makeTask(id: TaskID.make()) else { return }
@@ -73,25 +91,79 @@ final class AppState {
         save()
     }
 
+    /// Переключиться на соседнюю задачу (скролл по таблетке). Возвращает `false`, если дальше некуда.
+    @discardableResult
+    func switchTask(by offset: Int) -> Bool {
+        guard let id = TaskQueue.neighbor(of: currentTaskID, in: tasks, offset: offset) else { return false }
+        focus(on: id)
+        return true
+    }
+
+    func complete(_ id: String) {
+        guard let title = task(id)?.title else { return }
+        recordUndo("Готово: \(title)")
+        let date = today
+        update(id) { $0.complete(on: date) }
+        if id == currentTaskID { focusNext() }
+    }
+
+    func postpone(_ id: String, _ option: PostponeOption) {
+        guard let title = task(id)?.title else { return }
+        recordUndo("Отложено: \(title)")
+        let due = option.due(from: today)
+        update(id) { $0.due = due }
+        if id == currentTaskID { focusNext(excluding: id) }
+    }
+
+    func delete(_ id: String) {
+        guard let title = task(id)?.title else { return }
+        recordUndo("Удалено: \(title)")
+        tasks.removeAll { $0.id == id }
+        if id == currentTaskID { focusNext() } else { save() }
+    }
+
+    func rename(_ id: String, to title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        update(id) { $0.title = trimmed }
+    }
+
+    // MARK: - Шаги текущей задачи
+
     func toggleStep(at index: Int) {
         updateCurrent { $0.toggleStep(at: index) }
     }
 
-    func completeNextStep() {
-        updateCurrent { $0.completeNextStep() }
-    }
-
-    func completeCurrentTask() {
-        let date = today
-        updateCurrent { $0.complete(on: date) }
-        if let next = upcoming.first {
-            focus(on: next.id)
+    /// Свайп по таблетке: следующий шаг, а если шагов не осталось — вся задача.
+    func completeNextStepOrTask() {
+        guard let task = currentTask else { return }
+        if let step = task.nextStep {
+            recordUndo("Шаг готов: \(step.title)")
+            updateCurrent { $0.completeNextStep() }
         } else {
-            currentTaskID = nil
-            session.stop()
-            save()
+            complete(task.id)
         }
     }
+
+    func addStep(_ title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        updateCurrent { $0.addStep(trimmed) }
+    }
+
+    func renameStep(at index: Int, to title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        updateCurrent { $0.renameStep(at: index, to: trimmed) }
+    }
+
+    func removeStep(at index: Int) {
+        guard let step = currentTask?.steps[safe: index] else { return }
+        recordUndo("Шаг удалён: \(step.title)")
+        updateCurrent { $0.removeStep(at: index) }
+    }
+
+    // MARK: - Таймер
 
     func togglePause() {
         if session.isRunning {
@@ -102,10 +174,53 @@ final class AppState {
         save()
     }
 
-    private func updateCurrent(_ change: (inout AnchorTask) -> Void) {
-        guard let index = tasks.firstIndex(where: { $0.id == currentTaskID }) else { return }
+    // MARK: - Отмена
+
+    func performUndo() {
+        guard let entry = undo else { return }
+        tasks = entry.tasks
+        currentTaskID = entry.currentTaskID
+        session = entry.session
+        clearUndo()
+        save()
+    }
+
+    func clearUndo() {
+        undoExpiry?.cancel()
+        undo = nil
+    }
+
+    private func recordUndo(_ message: String) {
+        undo = UndoEntry(message: message, tasks: tasks, currentTaskID: currentTaskID, session: session)
+        undoExpiry?.cancel()
+        undoExpiry = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(6))
+            guard !Task.isCancelled else { return }
+            self?.undo = nil
+        }
+    }
+
+    // MARK: - Служебное
+
+    private func focusNext(excluding id: String? = nil) {
+        if let next = upcoming.first(where: { $0.id != id }) {
+            focus(on: next.id)
+        } else {
+            currentTaskID = nil
+            session.stop()
+            save()
+        }
+    }
+
+    private func update(_ id: String, _ change: (inout AnchorTask) -> Void) {
+        guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
         change(&tasks[index])
         save()
+    }
+
+    private func updateCurrent(_ change: (inout AnchorTask) -> Void) {
+        guard let id = currentTaskID else { return }
+        update(id, change)
     }
 
     private func save() {
@@ -122,8 +237,20 @@ final class AppState {
             parse("Разобрать почту сегодня"),
             parse("Купить батарейки #дом"),
             parse("Записаться к врачу пт"),
+            parse("Позвонить бабушке"),
+            parse("Прочитать главу 3 через неделю"),
+            parse("Оплатить интернет 05.11"),
         ]
+        var done = parse("Выпить воды")
+        done.complete(on: today)
+        tasks.append(done)
         currentTaskID = report.id
         session.focus(on: report.id, at: Date(timeIntervalSinceNow: -23 * 60))
+    }
+}
+
+extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
