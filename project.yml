@@ -11,6 +11,8 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     MARKETING_VERSION: "0.1.0"
+    # Полная версия для самообновления; CI на тегах подставляет её из тега.
+    ANCHOR_VERSION: "$(MARKETING_VERSION)-dev"
     CURRENT_PROJECT_VERSION: "1"
     ARCHS: arm64
 targets:
@@ -26,6 +28,7 @@ targets:
         CFBundleDisplayName: Anchor
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        AnchorVersion: $(ANCHOR_VERSION)
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.productivity
     settings:

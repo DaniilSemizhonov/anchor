@@ -16,7 +16,8 @@ final class FloatingPanel: NSPanel {
         isReleasedWhenClosed = false
         backgroundColor = .clear
         isOpaque = false
-        hasShadow = true
+        // Тень рисует SwiftUI у карточки: окно больше неё и прозрачное.
+        hasShadow = false
         animationBehavior = .none
     }
 

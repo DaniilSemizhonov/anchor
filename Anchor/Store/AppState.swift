@@ -10,6 +10,8 @@ final class AppState {
     private(set) var session = FocusSession()
     /// Развёрнута по клику, а не только по наведению.
     var isPinnedExpanded = false
+    /// Курсор над карточкой (с задержкой, см. PanelController).
+    var isHovering = false
 
     @ObservationIgnored private let store: LocalStore?
     @ObservationIgnored private let parser = QuickCaptureParser()
