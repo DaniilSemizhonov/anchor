@@ -23,14 +23,4 @@ final class FloatingPanel: NSPanel {
     // Иначе в поле ввода нельзя печатать.
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
-
-    /// При изменении размера держим на месте верхний левый угол, чтобы панель раскрывалась вниз.
-    override func setFrame(_ frameRect: NSRect, display flag: Bool) {
-        var rect = frameRect
-        if frame.size != .zero, rect.size != frame.size, rect.origin == frame.origin {
-            rect.origin.y = frame.maxY - rect.height
-        }
-        super.setFrame(rect, display: flag)
-        invalidateShadow()
-    }
 }

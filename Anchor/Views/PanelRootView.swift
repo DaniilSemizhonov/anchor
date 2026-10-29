@@ -1,6 +1,11 @@
 import SwiftUI
 
 struct PanelRootView: View {
+    static let width: CGFloat = 340
+
+    /// Сообщает контроллеру размер содержимого, чтобы тот подогнал окно.
+    var onSizeChange: @MainActor (CGSize) -> Void
+
     @Environment(AppState.self) private var state
     @State private var isHovering = false
     @State private var draft = ""
@@ -19,10 +24,13 @@ struct PanelRootView: View {
                     .transition(.opacity)
             }
         }
-        .frame(width: 340, alignment: .leading)
+        .frame(width: Self.width, alignment: .leading)
         .glassEffect(.regular, in: .rect(cornerRadius: 18))
         .onHover { hovering in
             withAnimation(.snappy(duration: 0.2)) { isHovering = hovering }
         }
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { onSizeChange($0) }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }

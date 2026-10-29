@@ -20,15 +20,20 @@ jobs:
       - run: swift test --package-path Packages/AnchorCore
 
   app:
-    name: Anchor.app (macOS)
-    runs-on: macos-26
+    name: Anchor.app (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # xcode-27 — образ на macOS 27.
+        runner: [macos-26, xcode-27]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
 
       - name: Свежий Xcode
         run: |
-          XCODE=$(ls -d /Applications/Xcode_*.app | grep -iv beta | sort -V | tail -1)
+          XCODE=$( (ls -d /Applications/Xcode_*.app | grep -iv beta || ls -d /Applications/Xcode_*.app) | sort -V | tail -1)
           sudo xcode-select -s "$XCODE"
           xcodebuild -version
           sw_vers
@@ -55,11 +60,25 @@ jobs:
           ln -s /Applications dmg/Applications
           hdiutil create -volname Anchor -srcfolder dmg -ov -format UDZO Anchor.dmg
 
+      - name: Запуск без демо не падает
+        run: |
+          mkdir -p shots
+          open build/Build/Products/Release/Anchor.app
+          sleep 8
+          if ! pgrep -x Anchor; then
+            echo "::error::Anchor упал при запуске"
+            for f in ~/Library/Logs/DiagnosticReports/Anchor-*.ips; do
+              tail -n +2 "$f" | jq -r '.exception, (.faultingThread as $t | .usedImages as $img | .threads[$t].frames[:25][] | "\($img[.imageIndex].name // "?")  \(.symbol // "")")'
+            done
+            exit 1
+          fi
+          screencapture -x shots/empty.png
+          pkill -x Anchor
+
       - name: Скриншоты
         continue-on-error: true
         run: |
           APP=build/Build/Products/Release/Anchor.app
-          mkdir -p shots
           open "$APP" --args --demo
           sleep 6
           screencapture -x shots/pill.png
@@ -71,6 +90,7 @@ jobs:
           pkill -x Anchor || true
 
       - uses: actions/upload-artifact@v4
+        if: matrix.runner == 'macos-26'
         with:
           name: Anchor-app
           path: |
@@ -80,12 +100,12 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: screenshots
+          name: screenshots-${{ matrix.runner }}
           path: shots/
           if-no-files-found: ignore
 
       - name: Релиз
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.runner == 'macos-26'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
