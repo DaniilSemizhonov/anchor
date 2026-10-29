@@ -48,6 +48,13 @@ jobs:
           codesign --force --deep --sign - build/Build/Products/Release/Anchor.app
           ditto -c -k --keepParent build/Build/Products/Release/Anchor.app Anchor.zip
 
+      - name: DMG
+        run: |
+          mkdir dmg
+          cp -R build/Build/Products/Release/Anchor.app dmg/
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname Anchor -srcfolder dmg -ov -format UDZO Anchor.dmg
+
       - name: Скриншоты
         continue-on-error: true
         run: |
@@ -66,7 +73,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Anchor-app
-          path: Anchor.zip
+          path: |
+            Anchor.zip
+            Anchor.dmg
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -79,4 +88,12 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" Anchor.zip --title "Anchor $GITHUB_REF_NAME" --generate-notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mv Anchor.dmg "Anchor-$VERSION.dmg"
+          mv Anchor.zip "Anchor-$VERSION.zip"
+          # Теги с дефисом (v0.1.0-beta.1) — пре-релизы.
+          PRERELEASE=""
+          [[ "$VERSION" == *-* ]] && PRERELEASE="--prerelease"
+          gh release create "$GITHUB_REF_NAME" "Anchor-$VERSION.dmg" "Anchor-$VERSION.zip" \
+            --title "Anchor $VERSION" $PRERELEASE --notes-file .github/release-notes.md --generate-notes
