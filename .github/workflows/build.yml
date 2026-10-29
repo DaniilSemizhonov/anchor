@@ -139,6 +139,12 @@ jobs:
           screencapture -x shots/capture-hotkey.png
           cliclick kp:return
           sleep 1
+          # Второй раз — чтобы поймать нестабильность Enter.
+          cliclick kd:ctrl,alt kp:space ku:ctrl,alt
+          sleep 1
+          cliclick t:"Call dentist"
+          cliclick kp:return
+          sleep 1
           cliclick m:512,62
           sleep 2
           screencapture -x shots/capture-added.png
@@ -149,9 +155,17 @@ jobs:
           # Оформление: цветной фон и вкладка «Вид».
           defaults write xyz.gelsemium.anchor appearance.style -string solid
           defaults write xyz.gelsemium.anchor appearance.color -string "#2E7D5B"
-          open "$APP" --args --demo --expanded --settings --settings-tab=appearance
+          open "$APP" --args --demo --expanded
           sleep 6
           screencapture -x shots/appearance.png
+          pkill -x Anchor || true
+          sleep 1
+          # Настройки без панели поверх: прячем её хоткеем ⌃⌥H.
+          open "$APP" --args --demo --settings --settings-tab=appearance
+          sleep 6
+          cliclick kd:ctrl,alt kp:h ku:ctrl,alt
+          sleep 1
+          screencapture -x shots/settings-appearance.png
           pkill -x Anchor || true
           defaults delete xyz.gelsemium.anchor || true
 

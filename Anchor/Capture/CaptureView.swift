@@ -8,6 +8,8 @@ struct CaptureView: View {
 
     @Environment(AppState.self) private var state
     @State private var text = ""
+    /// Return может прийти и через onKeyPress, и через onSubmit — добавляем один раз.
+    @State private var submitted = false
     @FocusState private var focused: Bool
 
     private var draft: CaptureDraft {
@@ -52,6 +54,7 @@ struct CaptureView: View {
                         }
                         return .handled
                     }
+                    .onSubmit { submit(makeCurrent: false) }
                     .onKeyPress(.tab, phases: .down) { _ in
                         guard mode == .task else { return .ignored }
                         state.park(text)
@@ -122,6 +125,7 @@ struct CaptureView: View {
     }
 
     private func submit(makeCurrent: Bool) {
+        guard !submitted else { return }
         switch mode {
         case .task:
             guard !draft.title.isEmpty else { return }
@@ -129,6 +133,7 @@ struct CaptureView: View {
         case .crumb:
             state.addCrumb(text)
         }
+        submitted = true
         onClose()
     }
 }
