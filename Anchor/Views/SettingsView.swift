@@ -29,6 +29,8 @@ struct SettingsView: View {
                 UpdateSettings()
             }
         }
+        // Обычные вкладки внутри окна: в стиле по умолчанию они уезжали в меню «»» тулбара.
+        .tabViewStyle(.grouped)
         .frame(width: 480, height: 560)
     }
 }
