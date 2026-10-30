@@ -50,15 +50,20 @@ struct CaptureView: View {
                         if press.modifiers.contains(.shift) {
                             text += "\n"
                         } else {
-                            submit(makeCurrent: press.modifiers.contains(.command))
+                            let makeCurrent = press.modifiers.contains(.command)
+                            afterTextSettles { submit(makeCurrent: makeCurrent) }
                         }
                         return .handled
                     }
-                    .onSubmit { submit(makeCurrent: false) }
+                    .onSubmit { afterTextSettles { submit(makeCurrent: false) } }
                     .onKeyPress(.tab, phases: .down) { _ in
                         guard mode == .task else { return .ignored }
-                        state.park(text)
-                        onClose()
+                        afterTextSettles {
+                            guard !submitted else { return }
+                            submitted = true
+                            state.park(text)
+                            onClose()
+                        }
                         return .handled
                     }
                     .onExitCommand(perform: onClose)
@@ -122,6 +127,15 @@ struct CaptureView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
         .background(.tint.opacity(0.15), in: Capsule())
+    }
+
+    /// Если нажать Enter сразу после последней буквы, поле ещё не успело передать текст
+    /// в `text` — и задача терялась. Ждём один такт, пока текст дойдёт.
+    private func afterTextSettles(_ action: @escaping @MainActor () -> Void) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(30))
+            action()
+        }
     }
 
     private func submit(makeCurrent: Bool) {
