@@ -8,8 +8,6 @@ struct CaptureView: View {
 
     @Environment(AppState.self) private var state
     @State private var text = ""
-    /// Return может прийти и через onKeyPress, и через onSubmit — добавляем один раз.
-    @State private var submitted = false
     @FocusState private var focused: Bool
 
     private var draft: CaptureDraft {
@@ -46,27 +44,6 @@ struct CaptureView: View {
                     .font(.system(size: 20))
                     .lineLimit(1...6)
                     .focused($focused)
-                    .onKeyPress(.return, phases: .down) { press in
-                        if press.modifiers.contains(.shift) {
-                            text += "\n"
-                        } else {
-                            let makeCurrent = press.modifiers.contains(.command)
-                            afterTextSettles { submit(makeCurrent: makeCurrent) }
-                        }
-                        return .handled
-                    }
-                    .onSubmit { afterTextSettles { submit(makeCurrent: false) } }
-                    .onKeyPress(.tab, phases: .down) { _ in
-                        guard mode == .task else { return .ignored }
-                        afterTextSettles {
-                            guard !submitted else { return }
-                            submitted = true
-                            state.park(text)
-                            onClose()
-                        }
-                        return .handled
-                    }
-                    .onExitCommand(perform: onClose)
             }
 
             if mode == .task, !text.isEmpty {
@@ -127,27 +104,5 @@ struct CaptureView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
         .background(.tint.opacity(0.15), in: Capsule())
-    }
-
-    /// Если нажать Enter сразу после последней буквы, поле ещё не успело передать текст
-    /// в `text` — и задача терялась. Ждём один такт, пока текст дойдёт.
-    private func afterTextSettles(_ action: @escaping @MainActor () -> Void) {
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(30))
-            action()
-        }
-    }
-
-    private func submit(makeCurrent: Bool) {
-        guard !submitted else { return }
-        switch mode {
-        case .task:
-            guard !draft.title.isEmpty else { return }
-            withAnimation(.snappy) { state.capture(text, makeCurrent: makeCurrent) }
-        case .crumb:
-            state.addCrumb(text)
-        }
-        submitted = true
-        onClose()
     }
 }
