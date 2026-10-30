@@ -187,6 +187,18 @@ jobs:
           mkdir -p /tmp/vault/.obsidian shots
           defaults write xyz.gelsemium.anchor obsidian.vaultPath -string /tmp/vault
           defaults write xyz.gelsemium.anchor obsidian.syncEnabled -bool true
+          diagnose() {
+            echo "::group::Диагностика"
+            pgrep -lx Anchor || echo "Anchor не запущен"
+            defaults read xyz.gelsemium.anchor || true
+            ls -laR /tmp/vault || true
+            [ -f "$TASKS" ] && cat "$TASKS"
+            for f in ~/Library/Logs/DiagnosticReports/Anchor-*.ips; do
+              [ -f "$f" ] && tail -n +2 "$f" | jq -r '.exception, (.faultingThread as $t | .usedImages as $img | .threads[$t].frames[:25][] | "\($img[.imageIndex].name // "?")  \(.symbol // "")")'
+            done
+            echo "::endgroup::"
+          }
+          trap diagnose ERR
           open "$APP"
           sleep 6
           test -f "$TASKS"
