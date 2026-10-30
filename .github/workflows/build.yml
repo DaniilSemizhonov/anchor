@@ -190,6 +190,8 @@ jobs:
           diagnose() {
             echo "::group::Диагностика"
             pgrep -lx Anchor || echo "Anchor не запущен"
+            screencapture -x shots/vault-fail.png || true
+            cat ~/Library/Application\ Support/Anchor/state.json || true
             defaults read xyz.gelsemium.anchor || true
             ls -laR /tmp/vault || true
             [ -f "$TASKS" ] && cat "$TASKS"
