@@ -107,6 +107,7 @@ jobs:
           # Жесты: свайп шага вправо (середина и результат), переключение задачи скроллом по таблетке.
           # У синтетических событий нет флага «естественной прокрутки», поэтому пальцы вправо — это dx < 0, вверх — dy > 0.
           swiftc -O scripts/ci/scroll.swift -o /tmp/scroll
+          swiftc -O scripts/ci/key.swift -o /tmp/key
           open "$APP" --args --demo --expanded
           sleep 6
           /tmp/scroll 450 139 -100 0 hold
@@ -137,13 +138,13 @@ jobs:
           cliclick t:"Buy milk #home !"
           sleep 1
           screencapture -x shots/capture-hotkey.png
-          cliclick kp:return
+          /tmp/key 36
           sleep 1
           # Второй раз — чтобы поймать нестабильность Enter.
           cliclick kd:ctrl,alt kp:space ku:ctrl,alt
           sleep 1
           cliclick t:"Call dentist"
-          cliclick kp:return
+          /tmp/key 36
           sleep 1
           cliclick m:512,62
           sleep 2
@@ -184,6 +185,7 @@ jobs:
           APP=build/Build/Products/Release/Anchor.app
           TASKS="/tmp/vault/Anchor/Задачи.md"
           brew list cliclick >/dev/null 2>&1 || brew install cliclick
+          [ -x /tmp/key ] || swiftc -O scripts/ci/key.swift -o /tmp/key
           mkdir -p /tmp/vault/.obsidian shots
           defaults write xyz.gelsemium.anchor obsidian.vaultPath -string /tmp/vault
           defaults write xyz.gelsemium.anchor obsidian.syncEnabled -bool true
@@ -211,7 +213,7 @@ jobs:
           sleep 1
           cliclick t:"Buy milk"
           sleep 1
-          cliclick kp:return
+          /tmp/key 36
           sleep 2
           grep -q "Buy milk" "$TASKS"
 
@@ -222,7 +224,7 @@ jobs:
           sleep 1
           cliclick t:"Second task"
           sleep 1
-          cliclick kp:return
+          /tmp/key 36
           sleep 2
           cliclick m:512,62
           sleep 2
