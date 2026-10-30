@@ -10,6 +10,7 @@ struct ExpandedView: View {
     @State private var newStep = ""
     @State private var showAllUpcoming = false
     @State private var showParked = false
+    @AppStorage(AppearanceKeys.showAddStep) private var showAddStep = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -51,14 +52,16 @@ struct ExpandedView: View {
                 stepRow(step, index: index)
             }
 
-            TextField("+ шаг", text: $newStep)
-                .textFieldStyle(.plain)
-                .font(.callout)
-                .padding(.leading, 24)
-                .onSubmit {
-                    withAnimation(.snappy) { state.addStep(newStep) }
-                    newStep = ""
-                }
+            if showAddStep {
+                TextField("+ шаг", text: $newStep)
+                    .textFieldStyle(.plain)
+                    .font(.callout)
+                    .padding(.leading, 24)
+                    .onSubmit {
+                        withAnimation(.snappy) { state.addStep(newStep) }
+                        newStep = ""
+                    }
+            }
 
             if let crumb = task.lastCrumb {
                 Text("📍 " + crumb)

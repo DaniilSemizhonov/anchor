@@ -1,3 +1,4 @@
+import AppKit
 import KeyboardShortcuts
 import ServiceManagement
 import SwiftUI
@@ -64,6 +65,7 @@ private struct GeneralSettings: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            ObsidianSettings()
             Section {
                 Link("Anchor на GitHub", destination: URL(string: "https://github.com/DaniilSemizhonov/anchor")!)
             }
@@ -89,6 +91,90 @@ private struct GeneralSettings: View {
     }
 }
 
+// MARK: - Obsidian
+
+private struct ObsidianSettings: View {
+    @Environment(VaultSync.self) private var vault
+    @AppStorage(ObsidianKeys.vaultPath) private var vaultPath = ""
+    @AppStorage(ObsidianKeys.syncEnabled) private var syncEnabled = false
+    @AppStorage(ObsidianKeys.taskTag) private var taskTag = ""
+
+    private var looksLikeVault: Bool {
+        FileManager.default.fileExists(atPath: (vaultPath as NSString).appendingPathComponent(".obsidian"))
+    }
+
+    var body: some View {
+        Section {
+            LabeledContent("Хранилище") {
+                HStack {
+                    Text(vaultPath.isEmpty ? "Не выбрано" : (vaultPath as NSString).abbreviatingWithTildeInPath)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(vaultPath.isEmpty ? .secondary : .primary)
+                        .help(vaultPath)
+                    Button("Выбрать…", action: chooseVault)
+                    if !vaultPath.isEmpty {
+                        Button("Убрать") {
+                            vaultPath = ""
+                            syncEnabled = false
+                            vault.configure()
+                        }
+                    }
+                }
+            }
+            if !vaultPath.isEmpty {
+                if looksLikeVault {
+                    Label("Хранилище найдено", systemImage: "checkmark.circle")
+                        .foregroundStyle(.green)
+                } else {
+                    Label("Нет папки .obsidian — это точно хранилище?", systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                }
+                Toggle("Синхронизировать задачи", isOn: $syncEnabled)
+                    .onChange(of: syncEnabled) { vault.configure() }
+                TextField("Тег для Tasks", text: $taskTag, prompt: Text("без тега"))
+                    .onSubmit { vault.configure() }
+                status
+            }
+        } header: {
+            Text("Obsidian")
+        } footer: {
+            Text("Задачи хранятся в «Anchor/Задачи.md» в формате плагина Tasks, мысли — в «Anchor/Парковка.md». Если у Tasks задан глобальный фильтр (например, #task), впишите этот тег — Anchor будет ставить его сам.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var status: some View {
+        switch vault.status {
+        case .off:
+            EmptyView()
+        case .synced(let date):
+            Text("Синхронизировано в \(date.formatted(date: .omitted, time: .shortened))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .failed(let message):
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.red)
+        }
+    }
+
+    private func chooseVault() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Выбрать"
+        panel.message = "Папка хранилища Obsidian"
+        if !vaultPath.isEmpty { panel.directoryURL = URL(fileURLWithPath: vaultPath) }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        vaultPath = url.path
+        vault.configure()
+    }
+}
+
 // MARK: - Вид
 
 private struct AppearanceSettings: View {
@@ -104,6 +190,7 @@ private struct AppearanceSettings: View {
     @AppStorage(AppearanceKeys.accent) private var accentHex = ""
     @AppStorage(AppearanceKeys.showTimer) private var showTimer = true
     @AppStorage(AppearanceKeys.showStep) private var showStep = true
+    @AppStorage(AppearanceKeys.showAddStep) private var showAddStep = true
 
     private let presets = ["#5B8DEF", "#2E7D5B", "#8E5BEF", "#E86A5B", "#F2B544", "#2B2D33"]
 
@@ -148,6 +235,7 @@ private struct AppearanceSettings: View {
                 .pickerStyle(.segmented)
                 Toggle("Показывать следующий шаг", isOn: $showStep)
                 Toggle("Показывать таймер", isOn: $showTimer)
+                Toggle("Показывать поле «+ шаг»", isOn: $showAddStep)
                 HStack {
                     ColorPicker("Акцентный цвет", selection: colorBinding($accentHex, fallback: .accentColor), supportsOpacity: false)
                     if !accentHex.isEmpty {

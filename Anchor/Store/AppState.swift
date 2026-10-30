@@ -44,6 +44,8 @@ final class AppState {
     @ObservationIgnored private let store: LocalStore?
     @ObservationIgnored private let parser = QuickCaptureParser()
     @ObservationIgnored private var undoExpiry: Task<Void, Never>?
+    /// Синхронизация с Obsidian; `nil` в демо-режиме.
+    @ObservationIgnored var vault: VaultSync?
 
     init(store: LocalStore?) {
         self.store = store
@@ -273,7 +275,36 @@ final class AppState {
     }
 
     private func save() {
+        saveLocally()
+        vault?.write(tasks: tasks, parked: parked.map(\.text))
+    }
+
+    private func saveLocally() {
         store?.save(.init(tasks: tasks, currentTaskID: currentTaskID, session: session, parked: parked))
+    }
+
+    /// Данные из хранилища Obsidian (файл поменяли там или слили с нашими правками).
+    /// Обратно в хранилище не пишет — иначе запись зациклится.
+    func replaceFromVault(tasks newTasks: [AnchorTask], parked texts: [String]) {
+        tasks = newTasks
+        // Мысли с тем же текстом сохраняют id, чтобы строки в списке не прыгали.
+        var pool = parked
+        parked = texts.map { text in
+            if let index = pool.firstIndex(where: { $0.text == text }) {
+                return pool.remove(at: index)
+            }
+            return ParkedThought(id: TaskID.make(), text: text, created: .now)
+        }
+        if let id = currentTaskID, task(id).map({ $0.isDone }) ?? true {
+            if let next = upcoming.first {
+                currentTaskID = next.id
+                session.focus(on: next.id, at: .now)
+            } else {
+                currentTaskID = nil
+                session.stop()
+            }
+        }
+        saveLocally()
     }
 
     private func loadDemo() {

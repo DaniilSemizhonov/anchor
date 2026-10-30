@@ -168,6 +168,53 @@ jobs:
           screencapture -x shots/settings-appearance.png
           pkill -x Anchor || true
           defaults delete xyz.gelsemium.anchor || true
+          sleep 1
+
+          # Цветное стекло должно быть видно и без наведения.
+          defaults write xyz.gelsemium.anchor appearance.style -string tintedGlass
+          defaults write xyz.gelsemium.anchor appearance.color -string "#E86A5B"
+          open "$APP" --args --demo
+          sleep 6
+          screencapture -x shots/tinted.png
+          pkill -x Anchor || true
+          defaults delete xyz.gelsemium.anchor || true
+
+      - name: Синхронизация с Obsidian
+        run: |
+          APP=build/Build/Products/Release/Anchor.app
+          TASKS="/tmp/vault/Anchor/Задачи.md"
+          brew list cliclick >/dev/null 2>&1 || brew install cliclick
+          mkdir -p /tmp/vault/.obsidian shots
+          defaults write xyz.gelsemium.anchor obsidian.vaultPath -string /tmp/vault
+          defaults write xyz.gelsemium.anchor obsidian.syncEnabled -bool true
+          open "$APP"
+          sleep 6
+          test -f "$TASKS"
+
+          # Задача из приложения попадает в файл.
+          cliclick kd:ctrl,alt kp:space ku:ctrl,alt
+          sleep 1
+          cliclick t:"Buy milk"
+          cliclick kp:return
+          sleep 2
+          grep -q "Buy milk" "$TASKS"
+
+          # Правка «из Obsidian» подхватывается и не стирается следующей записью приложения.
+          printf -- '- [ ] From Obsidian 🆔 ext1\n' >> "$TASKS"
+          sleep 4
+          cliclick kd:ctrl,alt kp:space ku:ctrl,alt
+          sleep 1
+          cliclick t:"Second task"
+          cliclick kp:return
+          sleep 2
+          cliclick m:512,62
+          sleep 2
+          screencapture -x shots/vault.png
+          echo "--- $TASKS"; cat "$TASKS"
+          grep -q "From Obsidian" "$TASKS"
+          grep -q "Second task" "$TASKS"
+          pkill -x Anchor || true
+          defaults delete xyz.gelsemium.anchor || true
 
       - uses: actions/upload-artifact@v4
         if: matrix.runner == 'macos-26'

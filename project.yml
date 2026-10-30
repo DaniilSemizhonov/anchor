@@ -13,7 +13,7 @@ packages:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "0.3.0"
+    MARKETING_VERSION: "0.4.0"
     # Полная версия для самообновления; CI на тегах подставляет её из тега.
     ANCHOR_VERSION: "$(MARKETING_VERSION)-dev"
     CURRENT_PROJECT_VERSION: "1"

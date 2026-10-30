@@ -15,6 +15,7 @@ struct AnchorApp: App {
             SettingsView()
                 .environment(appDelegate.updater)
                 .environment(appDelegate.state)
+                .environment(appDelegate.vault)
         }
         .windowResizability(.contentSize)
         // `--settings` — открыть настройки сразу (для скриншотов в CI).
@@ -52,9 +53,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) lazy var state = AppState.makeDefault()
     private(set) lazy var updater = Updater()
     private lazy var capture = CaptureController(state: state)
+    private(set) lazy var vault = VaultSync(state: state)
     private var panelController: PanelController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // В демо-режиме хранилище не трогаем.
+        if !ProcessInfo.processInfo.arguments.contains("--demo") {
+            state.vault = vault
+            vault.configure()
+        }
+
         let controller = PanelController(state: state)
         controller.show()
         panelController = controller

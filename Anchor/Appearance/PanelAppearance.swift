@@ -13,8 +13,9 @@ enum AppearanceKeys {
     static let accent = "appearance.accent"
     static let showTimer = "appearance.showTimer"
     static let showStep = "appearance.showStep"
+    static let showAddStep = "appearance.showAddStep"
 
-    static let all = [style, color, opacity, theme, width, textSize, accent, showTimer, showStep]
+    static let all = [style, color, opacity, theme, width, textSize, accent, showTimer, showStep, showAddStep]
 }
 
 enum PanelStyle: String, CaseIterable, Identifiable {
@@ -107,7 +108,12 @@ struct PanelBackground: ViewModifier {
         case .clearGlass:
             content.clipShape(shape).glassEffect(.clear, in: shape)
         case .tintedGlass:
-            content.clipShape(shape).glassEffect(.regular.tint(color.opacity(opacity)), in: shape)
+            // Цвет отдельным слоем поверх стекла: оттенок самого стекла macOS гасит
+            // в неактивном окне, и цвет был виден только при наведении.
+            content
+                .background(color.opacity(opacity * 0.6), in: shape)
+                .clipShape(shape)
+                .glassEffect(.regular, in: shape)
         case .solid:
             content.clipShape(shape).background(color.opacity(opacity), in: shape)
         }

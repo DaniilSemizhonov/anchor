@@ -87,6 +87,30 @@ public struct TasksDocument: Sendable {
         if let index = blockIndex(id: id) { segments.remove(at: index) }
     }
 
+    /// Приводит файл к списку задач приложения: изменённые обновляет на месте, новые дописывает
+    /// в конец, отсутствующие удаляет. Остальной текст файла и неизменённые задачи не трогает.
+    public mutating func sync(with tasks: [AnchorTask]) {
+        let keep = Set(tasks.map(\.id))
+        segments.removeAll { segment in
+            if case .task(let block) = segment { !keep.contains(block.task.id) } else { false }
+        }
+        for task in tasks { upsert(task) }
+    }
+
+    /// Трёхстороннее слияние: в этот документ (версия файла) переносятся только изменения
+    /// приложения относительно `base` — того, что было в файле при последней синхронизации.
+    /// Задачи, которые добавили или поменяли в Obsidian, а приложение не трогало, остаются.
+    public mutating func apply(changesFrom base: [AnchorTask], to ours: [AnchorTask]) {
+        let baseByID = Dictionary(base.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let ourIDs = Set(ours.map(\.id))
+        for id in baseByID.keys where !ourIDs.contains(id) {
+            remove(id: id)
+        }
+        for task in ours where baseByID[task.id] != task {
+            upsert(task)
+        }
+    }
+
     /// Задачи, которым id выдан при разборе, а в файле его нет.
     public var hasUnsavedIDs: Bool {
         segments.contains { if case .task(let block) = $0 { block.idWasGenerated } else { false } }
