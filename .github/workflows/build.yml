@@ -209,7 +209,7 @@ jobs:
           cliclick kd:ctrl,alt kp:space ku:ctrl,alt
           sleep 1
           cliclick t:"Buy milk"
-          sleep 0.3
+          sleep 1
           cliclick kp:return
           sleep 2
           grep -q "Buy milk" "$TASKS"
@@ -220,7 +220,7 @@ jobs:
           cliclick kd:ctrl,alt kp:space ku:ctrl,alt
           sleep 1
           cliclick t:"Second task"
-          sleep 0.3
+          sleep 1
           cliclick kp:return
           sleep 2
           cliclick m:512,62
