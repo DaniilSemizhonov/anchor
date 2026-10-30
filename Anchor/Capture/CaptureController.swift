@@ -43,6 +43,7 @@ final class CaptureController {
             ))
         }
         panel.makeKeyAndOrderFront(nil)
+        Log.capture.info("show mode=\(String(describing: mode), privacy: .public) key=\(panel.isKeyWindow)")
         self.panel = panel
         self.mode = mode
         installKeyMonitor()
@@ -50,6 +51,7 @@ final class CaptureController {
 
     func close() {
         guard let panel else { return }
+        Log.capture.info("close")
         self.panel = nil
         panel.onResignKey = nil
         panel.orderOut(nil)
@@ -72,6 +74,7 @@ final class CaptureController {
     }
 
     private func handleKey(_ event: NSEvent) -> Bool {
+        Log.capture.info("keyDown code=\(event.keyCode) ours=\(event.window === self.panel) window=\(String(describing: event.window?.className), privacy: .public)")
         guard let panel, event.window === panel else { return false }
         let editor = panel.firstResponder as? NSTextView
         let text = editor?.string ?? ""
@@ -98,6 +101,7 @@ final class CaptureController {
     }
 
     private func submit(_ text: String, makeCurrent: Bool) {
+        Log.capture.info("submit length=\(text.count)")
         switch mode {
         case .task:
             guard !QuickCaptureParser().parse(text, today: state.today).title.isEmpty else { return }
@@ -134,6 +138,7 @@ final class CapturePanel: NSPanel {
     override var canBecomeMain: Bool { false }
 
     override func resignKey() {
+        Log.capture.info("resignKey")
         super.resignKey()
         onResignKey?()
     }

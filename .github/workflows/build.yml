@@ -191,6 +191,7 @@ jobs:
             echo "::group::Диагностика"
             pgrep -lx Anchor || echo "Anchor не запущен"
             screencapture -x shots/vault-fail.png || true
+            log show --last 3m --info --predicate 'subsystem == "xyz.gelsemium.anchor"' --style compact | tail -60 || true
             cat ~/Library/Application\ Support/Anchor/state.json || true
             defaults read xyz.gelsemium.anchor || true
             ls -laR /tmp/vault || true

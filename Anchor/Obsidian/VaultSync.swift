@@ -103,6 +103,7 @@ final class VaultSync {
 
     /// Вызывается при каждом сохранении состояния приложения.
     func write(tasks: [AnchorTask], parked: [String]) {
+        Log.vault.info("write tasks=\(tasks.count) active=\(self.isActive)")
         guard isActive else { return }
         do {
             // Сливаем с текущим файлом, а не с нашей последней записью: вдруг его только что поменяли.
@@ -188,6 +189,7 @@ final class VaultSync {
     }
 
     private func fail(_ error: Error) {
+        Log.vault.error("\(error.localizedDescription, privacy: .public)")
         status = .failed(error.localizedDescription)
     }
 
